@@ -14,6 +14,7 @@ import (
 	"github.com/moby/term"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	u "github.com/docker/docker/utils"
 )
 
 var (
@@ -21,6 +22,8 @@ var (
 )
 
 func newDaemonCommand() (*cobra.Command, error) {
+	u.Info("enter cmd newDaemonCommand")
+	defer u.Duration(u.Track("cmd newDaemonCommand"))
 	opts := newDaemonOptions(config.New())
 
 	cmd := &cobra.Command{
@@ -69,6 +72,8 @@ func init() {
 }
 
 func main() {
+	u.Info("enter cmd main")
+	defer u.Duration(u.Track("cmd main"))
 	if reexec.Init() {
 		return
 	}
@@ -89,7 +94,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	tik := u.Tik("cmd main newDaemonCommand")
 	cmd, err := newDaemonCommand()
+	u.Duration("cmd main newDaemonCommand", tik)
 	if err != nil {
 		onError(err)
 	}

@@ -16,30 +16,43 @@ import (
 	volumeopts "github.com/docker/docker/volume/service/opts"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 // createContainerOSSpecificSettings performs host-OS specific container create functionality
 func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig) error {
+	defer u.Duration(u.Track("createContainerOSSpecificSettings"))
+	tik := u.Tik("Mount")
 	if err := daemon.Mount(container); err != nil {
 		return err
 	}
+	u.Duration("Mount", tik)
 	defer daemon.Unmount(container)
 
+	tik = u.Tik("RootPair")
 	rootIDs := daemon.idMapping.RootPair()
+	u.Duration("RootPair", tik)
+	tik = u.Tik("SetupWorkingDirectory")
 	if err := container.SetupWorkingDirectory(rootIDs); err != nil {
 		return err
 	}
+	u.Duration("SetupWorkingDirectory", tik)
 
+	tik = u.Tik("if 1")
 	// Set the default masked and readonly paths with regard to the host config options if they are not set.
 	if hostConfig.MaskedPaths == nil && !hostConfig.Privileged {
 		hostConfig.MaskedPaths = oci.DefaultSpec().Linux.MaskedPaths // Set it to the default if nil
 		container.HostConfig.MaskedPaths = hostConfig.MaskedPaths
 	}
+	u.Duration("if 1", tik)
+	tik = u.Tik("if 2")
 	if hostConfig.ReadonlyPaths == nil && !hostConfig.Privileged {
 		hostConfig.ReadonlyPaths = oci.DefaultSpec().Linux.ReadonlyPaths // Set it to the default if nil
 		container.HostConfig.ReadonlyPaths = hostConfig.ReadonlyPaths
 	}
+	u.Duration("if 2", tik)
 
+	tik = u.Tik("if 3")
 	for spec := range config.Volumes {
 		name := stringid.GenerateRandomID()
 		destination := filepath.Clean(spec)
@@ -72,6 +85,7 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 
 		container.AddMountPointWithVolume(destination, &volumeWrapper{v: v, s: daemon.volumes}, true)
 	}
+	u.Duration("if 3", tik)
 	return daemon.populateVolumes(container)
 }
 

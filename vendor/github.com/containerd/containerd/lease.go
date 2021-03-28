@@ -21,10 +21,12 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/leases"
+	u "github.com/docker/docker/utils"
 )
 
 // WithLease attaches a lease on the context
 func (c *Client) WithLease(ctx context.Context, opts ...leases.Opt) (context.Context, func(context.Context) error, error) {
+	defer u.Duration(u.Track("WithLease"))
 	nop := func(context.Context) error { return nil }
 
 	_, ok := leases.FromContext(ctx)

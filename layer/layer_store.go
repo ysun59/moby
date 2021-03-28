@@ -20,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
+	u "github.com/docker/docker/utils"
 )
 
 // maxLayerDepth represents the maximum number of
@@ -503,6 +504,7 @@ func (ls *layerStore) Release(l Layer) ([]Metadata, error) {
 }
 
 func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWLayerOpts) (_ RWLayer, err error) {
+	defer u.Duration(u.Track("CreateRWLayer"))	
 	var (
 		storageOpt map[string]string
 		initFunc   MountInit
@@ -536,6 +538,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 
 		// Release parent chain if error
 		defer func() {
+			u.Info("enter func")
 			if err != nil {
 				ls.layerL.Lock()
 				ls.releaseLayer(p)
@@ -683,6 +686,7 @@ func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc Mou
 	// which are expecting this layer with this special name. If all
 	// graph drivers can be updated to not rely on knowing about this layer
 	// then the initID should be randomly generated.
+	defer u.Duration(u.Track("initMount"))
 	initID := fmt.Sprintf("%s-init", graphID)
 
 	createOpts := &graphdriver.CreateOpts{
@@ -693,19 +697,25 @@ func (ls *layerStore) initMount(graphID, parent, mountLabel string, initFunc Mou
 	if err := ls.driver.CreateReadWrite(initID, parent, createOpts); err != nil {
 		return "", err
 	}
+	tik := u.Tik("driver.Get")
 	p, err := ls.driver.Get(initID, "")
+	u.Duration("driver.Get", tik)
 	if err != nil {
 		return "", err
 	}
 
+	tik = u.Tik("initFunc")
 	if err := initFunc(p); err != nil {
 		ls.driver.Put(initID)
 		return "", err
 	}
+	u.Duration("initFunc", tik)
 
+	tik = u.Tik("driver.Put")
 	if err := ls.driver.Put(initID); err != nil {
 		return "", err
 	}
+	u.Duration("driver.Put", tik)
 
 	return initID, nil
 }

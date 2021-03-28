@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/pkg/signal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 type errNoSuchProcess struct {
@@ -38,10 +39,14 @@ func isErrNoSuchProcess(err error) bool {
 // for the container to exit.
 // If a signal is given, then just send it to the container and return.
 func (daemon *Daemon) ContainerKill(name string, sig uint64) error {
+	defer u.Duration(u.Track("containerKill"))
+
+	tik := u.Tik("getContainer")
 	container, err := daemon.GetContainer(name)
 	if err != nil {
 		return err
 	}
+	u.Duration("getContainer", tik)
 
 	if sig != 0 && !signal.ValidSignalForPlatform(syscall.Signal(sig)) {
 		return fmt.Errorf("The %s daemon does not support signal %d", runtime.GOOS, sig)
@@ -51,6 +56,7 @@ func (daemon *Daemon) ContainerKill(name string, sig uint64) error {
 	if sig == 0 || syscall.Signal(sig) == syscall.SIGKILL {
 		return daemon.Kill(container)
 	}
+
 	return daemon.killWithSignal(container, int(sig))
 }
 
@@ -60,6 +66,7 @@ func (daemon *Daemon) ContainerKill(name string, sig uint64) error {
 // or not running, or if there is a problem returned from the
 // underlying kill command.
 func (daemon *Daemon) killWithSignal(container *containerpkg.Container, sig int) error {
+	defer u.Duration(u.Track("killWithSignal"))
 	logrus.Debugf("Sending kill signal %d to container %s", sig, container.ID)
 	container.Lock()
 	defer container.Unlock()
@@ -133,6 +140,7 @@ func (daemon *Daemon) killWithSignal(container *containerpkg.Container, sig int)
 
 // Kill forcefully terminates a container.
 func (daemon *Daemon) Kill(container *containerpkg.Container) error {
+	defer u.Duration(u.Track("Kill"))
 	if !container.IsRunning() {
 		return errNotRunning(container.ID)
 	}
@@ -149,6 +157,7 @@ func (daemon *Daemon) Kill(container *containerpkg.Container) error {
 		// So, instead we'll give it up to 2 more seconds to complete and if
 		// by that time the container is still running, then the error
 		// we got is probably valid and so we return it to the caller.
+		u.Info("enter Kill if 1")
 		if isErrNoSuchProcess(err) {
 			return nil
 		}
@@ -163,6 +172,7 @@ func (daemon *Daemon) Kill(container *containerpkg.Container) error {
 
 	// 2. Wait for the process to die, in last resort, try to kill the process directly
 	if err := killProcessDirectly(container); err != nil {
+		u.Info("enter Kill if 2")
 		if isErrNoSuchProcess(err) {
 			return nil
 		}
@@ -171,13 +181,15 @@ func (daemon *Daemon) Kill(container *containerpkg.Container) error {
 
 	// Wait for exit with no timeout.
 	// Ignore returned status.
+	u.Info("after Kill if 2")
 	<-container.Wait(context.Background(), containerpkg.WaitConditionNotRunning)
-
+	u.Info("after Kill if 2 and before return")
 	return nil
 }
 
 // killPossibleDeadProcess is a wrapper around killSig() suppressing "no such process" error.
 func (daemon *Daemon) killPossiblyDeadProcess(container *containerpkg.Container, sig int) error {
+	defer u.Duration(u.Track("killPossiblyDeadProcess"))
 	err := daemon.killWithSignal(container, sig)
 	if errdefs.IsNotFound(err) {
 		e := errNoSuchProcess{container.GetPID(), sig}
@@ -188,5 +200,6 @@ func (daemon *Daemon) killPossiblyDeadProcess(container *containerpkg.Container,
 }
 
 func (daemon *Daemon) kill(c *containerpkg.Container, sig int) error {
+	defer u.Duration(u.Track("kill"))
 	return daemon.containerd.SignalProcess(context.Background(), c.ID, libcontainerdtypes.InitProcessName, sig)
 }

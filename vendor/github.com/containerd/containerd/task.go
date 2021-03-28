@@ -47,6 +47,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	u "github.com/docker/docker/utils"
 )
 
 // UnknownExitStatus is returned when containerd is unable to
@@ -294,6 +295,7 @@ func (t *task) Wait(ctx context.Context) (<-chan ExitStatus, error) {
 // it returns the exit status of the task and any errors that were encountered
 // during cleanup
 func (t *task) Delete(ctx context.Context, opts ...ProcessDeleteOpts) (*ExitStatus, error) {
+	defer u.Duration(u.Track("task.go Delete"))
 	for _, o := range opts {
 		if err := o(ctx, t); err != nil {
 			return nil, err

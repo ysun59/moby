@@ -22,6 +22,7 @@ import (
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/leases"
+	u "github.com/docker/docker/utils"
 )
 
 type proxyManager struct {
@@ -37,6 +38,7 @@ func NewLeaseManager(client leasesapi.LeasesClient) leases.Manager {
 }
 
 func (pm *proxyManager) Create(ctx context.Context, opts ...leases.Opt) (leases.Lease, error) {
+	defer u.Duration(u.Track("manager.go Create"))
 	l := leases.Lease{}
 	for _, opt := range opts {
 		if err := opt(&l); err != nil {
@@ -59,6 +61,7 @@ func (pm *proxyManager) Create(ctx context.Context, opts ...leases.Opt) (leases.
 }
 
 func (pm *proxyManager) Delete(ctx context.Context, l leases.Lease, opts ...leases.DeleteOpt) error {
+	defer u.Duration(u.Track("manager.go Delete"))
 	var do leases.DeleteOptions
 	for _, opt := range opts {
 		if err := opt(ctx, &do); err != nil {

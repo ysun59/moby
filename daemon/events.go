@@ -14,6 +14,7 @@ import (
 	swarmapi "github.com/docker/swarmkit/api"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 
 // LogContainerEvent generates an event related to a container with only the default attributes.
 func (daemon *Daemon) LogContainerEvent(container *container.Container, action string) {
+	defer u.Duration(u.Track("LogContainerEvent"))
 	daemon.LogContainerEventWithAttributes(container, action, map[string]string{})
 }
 

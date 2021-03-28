@@ -24,6 +24,7 @@ import (
 	"github.com/docker/libnetwork/options"
 	"github.com/docker/libnetwork/types"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 var (
@@ -456,6 +457,7 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 
 // updateContainerNetworkSettings updates the network settings
 func (daemon *Daemon) updateContainerNetworkSettings(container *container.Container, endpointsConfig map[string]*networktypes.EndpointSettings) {
+	defer u.Duration(u.Track("updateContainerNetworkSettings"))
 	var n libnetwork.Network
 
 	mode := container.HostConfig.NetworkMode
@@ -527,6 +529,7 @@ func (daemon *Daemon) updateContainerNetworkSettings(container *container.Contai
 }
 
 func (daemon *Daemon) allocateNetwork(container *container.Container) (retErr error) {
+	defer u.Duration(u.Track("allocateNetwork"))
 	if daemon.netController == nil {
 		return nil
 	}
@@ -536,18 +539,22 @@ func (daemon *Daemon) allocateNetwork(container *container.Container) (retErr er
 		controller = daemon.netController
 	)
 
+	tik := u.Tik("SandboxDestroy")
 	// Cleanup any stale sandbox left over due to ungraceful daemon shutdown
 	if err := controller.SandboxDestroy(container.ID); err != nil {
 		logrus.WithError(err).Errorf("failed to cleanup up stale network sandbox for container %s", container.ID)
 	}
+	u.Duration("SandboxDestroy", tik)
 
 	if container.Config.NetworkDisabled || container.HostConfig.NetworkMode.IsContainer() {
+		u.Info("if 1")
 		return nil
 	}
 
 	updateSettings := false
 
 	if len(container.NetworkSettings.Networks) == 0 {
+		u.Info("if 2")
 		daemon.updateContainerNetworkSettings(container, nil)
 		updateSettings = true
 	}
@@ -556,18 +563,28 @@ func (daemon *Daemon) allocateNetwork(container *container.Container) (retErr er
 	// network mode support link and we need do some setting
 	// on sandbox initialize for link, but the sandbox only be initialized
 	// on first network connecting.
+	tik = u.Tik("NetworkName")
 	defaultNetName := runconfig.DefaultDaemonNetworkMode().NetworkName()
+	u.Duration("NetworkName", tik)
 	if nConf, ok := container.NetworkSettings.Networks[defaultNetName]; ok {
+		u.Info("if 3")
+		tik := u.Tik("cleanOperationalData")
 		cleanOperationalData(nConf)
+		u.Duration("cleanOperationalData", tik)
+		tik = u.Tik("connectToNetwork")
 		if err := daemon.connectToNetwork(container, defaultNetName, nConf.EndpointSettings, updateSettings); err != nil {
 			return err
 		}
+		u.Duration("connectToNetwork", tik)
 
 	}
 
 	// the intermediate map is necessary because "connectToNetwork" modifies "container.NetworkSettings.Networks"
+	tik = u.Tik("make")
 	networks := make(map[string]*network.EndpointSettings)
+	u.Duration("make", tik)
 	for n, epConf := range container.NetworkSettings.Networks {
+		u.Info("if 4")
 		if n == defaultNetName {
 			continue
 		}
@@ -575,16 +592,20 @@ func (daemon *Daemon) allocateNetwork(container *container.Container) (retErr er
 		networks[n] = epConf
 	}
 
+	tik = u.Tik("connectToNetwork")
 	for netName, epConf := range networks {
+		u.Info("if 5")
 		cleanOperationalData(epConf)
 		if err := daemon.connectToNetwork(container, netName, epConf.EndpointSettings, updateSettings); err != nil {
+			u.Info("if 6")
 			return err
 		}
 	}
-
+	u.Duration("make", tik)
 	// If the container is not to be connected to any network,
 	// create its network sandbox now if not present
 	if len(networks) == 0 {
+		u.Info("if 7")
 		if nil == daemon.getNetworkSandbox(container) {
 			sbOptions, err := daemon.buildSandboxOptions(container)
 			if err != nil {
@@ -607,7 +628,9 @@ func (daemon *Daemon) allocateNetwork(container *container.Container) (retErr er
 	if _, err := container.WriteHostConfig(); err != nil {
 		return err
 	}
+	tik = u.Tik("UpdateSince_start")
 	networkActions.WithValues("allocate").UpdateSince(start)
+	u.Duration("UpdateSince_start", tik)
 	return nil
 }
 
@@ -956,6 +979,7 @@ func (daemon *Daemon) tryDetachContainerFromClusterNetwork(network libnetwork.Ne
 }
 
 func (daemon *Daemon) initializeNetworking(container *container.Container) error {
+	defer u.Duration(u.Track("initializeNetworking"))
 	var err error
 
 	if container.HostConfig.NetworkMode.IsContainer() {
@@ -1010,6 +1034,7 @@ func (daemon *Daemon) getNetworkedContainer(containerID, connectedContainerID st
 }
 
 func (daemon *Daemon) releaseNetwork(container *container.Container) {
+	defer u.Duration(u.Track("releaseNetwork"))
 	start := time.Now()
 	if daemon.netController == nil {
 		return

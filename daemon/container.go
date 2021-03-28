@@ -26,6 +26,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 // GetContainer looks for a container using the provided information, which could be
@@ -36,6 +37,7 @@ import (
 //    unique enough to only return a single container object
 //  If none of these searches succeed, an error is returned
 func (daemon *Daemon) GetContainer(prefixOrName string) (*container.Container, error) {
+	//defer u.Duration(u.Track("GetContainer"))
 	if len(prefixOrName) == 0 {
 		return nil, errors.WithStack(invalidIdentifier(prefixOrName))
 	}
@@ -108,24 +110,35 @@ func (daemon *Daemon) load(id string) (*container.Container, error) {
 
 // Register makes a container object usable by the daemon as <container.ID>
 func (daemon *Daemon) Register(c *container.Container) error {
+	//defer u.Duration(u.Track("Register"))
 	// Attach to stdout and stderr
+	tik := u.Tik("if 1")
 	if c.Config.OpenStdin {
+		u.Info("enter 1")
 		c.StreamConfig.NewInputPipes()
 	} else {
+		u.Info("enter 2")
 		c.StreamConfig.NewNopInputPipe()
 	}
+	u.Duration("if 1", tik)
 
 	// once in the memory store it is visible to other goroutines
 	// grab a Lock until it has been checkpointed to avoid races
+	tik = u.Tik("LockUnlock")
 	c.Lock()
 	defer c.Unlock()
+	u.Duration("LockUnlock", tik)
 
+	tik = u.Tik("Add")
 	daemon.containers.Add(c.ID, c)
 	daemon.idIndex.Add(c.ID)
+	u.Duration("Add", tik)
 	return c.CheckpointTo(daemon.containersReplica)
+//	return nil
 }
 
 func (daemon *Daemon) newContainer(name string, operatingSystem string, config *containertypes.Config, hostConfig *containertypes.HostConfig, imgID image.ID, managed bool) (*container.Container, error) {
+	defer u.Duration(u.Track("newContainer"))
 	var (
 		id             string
 		err            error
@@ -204,29 +217,36 @@ func (daemon *Daemon) generateHostname(id string, config *containertypes.Config)
 }
 
 func (daemon *Daemon) setSecurityOptions(container *container.Container, hostConfig *containertypes.HostConfig) error {
+	defer u.Duration(u.Track("setSecurityOptions"))
 	container.Lock()
 	defer container.Unlock()
 	return daemon.parseSecurityOpt(container, hostConfig)
 }
 
 func (daemon *Daemon) setHostConfig(container *container.Container, hostConfig *containertypes.HostConfig) error {
+	defer u.Duration(u.Track("setHostConfig"))
 	// Do not lock while creating volumes since this could be calling out to external plugins
 	// Don't want to block other actions, like `docker ps` because we're waiting on an external plugin
+	tik := u.Tik("registerMountPoints")
 	if err := daemon.registerMountPoints(container, hostConfig); err != nil {
 		return err
 	}
+	u.Duration("registerMountPoints", tik)
 
 	container.Lock()
 	defer container.Unlock()
 
 	// Register any links from the host config before starting the container
+	tik = u.Tik("registerLinks")
 	if err := daemon.registerLinks(container, hostConfig); err != nil {
 		return err
 	}
+	u.Duration("registerLinks", tik)
 
 	runconfig.SetDefaultNetModeIfBlank(hostConfig)
 	container.HostConfig = hostConfig
 	return container.CheckpointTo(daemon.containersReplica)
+//	return nil
 }
 
 // verifyContainerSettings performs validation of the hostconfig and config

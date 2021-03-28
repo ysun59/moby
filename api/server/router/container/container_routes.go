@@ -24,9 +24,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/websocket"
+	u "github.com/docker/docker/utils"
 )
 
 func (s *containerRouter) postCommit(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postCommit"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -66,6 +68,7 @@ func (s *containerRouter) postCommit(ctx context.Context, w http.ResponseWriter,
 }
 
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersJSON"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -99,6 +102,7 @@ func (s *containerRouter) getContainersJSON(ctx context.Context, w http.Response
 }
 
 func (s *containerRouter) getContainersStats(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersStats"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -123,6 +127,7 @@ func (s *containerRouter) getContainersStats(ctx context.Context, w http.Respons
 }
 
 func (s *containerRouter) getContainersLogs(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersLogs"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -163,6 +168,7 @@ func (s *containerRouter) getContainersLogs(ctx context.Context, w http.Response
 }
 
 func (s *containerRouter) getContainersExport(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersExport"))
 	return s.backend.ContainerExport(vars["name"], w)
 }
 
@@ -182,6 +188,7 @@ func (s *containerRouter) postContainersStart(ctx context.Context, w http.Respon
 	// including r.TransferEncoding
 	// allow a nil body for backwards compatibility
 
+	defer u.Duration(u.Track("postContainersStart"))
 	version := httputils.VersionFromContext(ctx)
 	var hostConfig *container.HostConfig
 	// A non-nil json object is at least 7 characters.
@@ -216,6 +223,7 @@ func (s *containerRouter) postContainersStart(ctx context.Context, w http.Respon
 }
 
 func (s *containerRouter) postContainersStop(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersStop"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -238,6 +246,8 @@ func (s *containerRouter) postContainersStop(ctx context.Context, w http.Respons
 }
 
 func (s *containerRouter) postContainersKill(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	//defer u.LogFlush()
+	defer u.Duration(u.Track("postContainerKill"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -273,6 +283,7 @@ func (s *containerRouter) postContainersKill(ctx context.Context, w http.Respons
 }
 
 func (s *containerRouter) postContainersRestart(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersRestart"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -296,6 +307,7 @@ func (s *containerRouter) postContainersRestart(ctx context.Context, w http.Resp
 }
 
 func (s *containerRouter) postContainersPause(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersPause"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -310,6 +322,7 @@ func (s *containerRouter) postContainersPause(ctx context.Context, w http.Respon
 }
 
 func (s *containerRouter) postContainersUnpause(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersUnpause"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -326,6 +339,7 @@ func (s *containerRouter) postContainersUnpause(ctx context.Context, w http.Resp
 func (s *containerRouter) postContainersWait(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	// Behavior changed in version 1.30 to handle wait condition and to
 	// return headers immediately.
+	defer u.Duration(u.Track("postContainersWait"))
 	version := httputils.VersionFromContext(ctx)
 	legacyBehaviorPre130 := versions.LessThan(version, "1.30")
 	legacyRemovalWaitPre134 := false
@@ -333,6 +347,7 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 	// The wait condition defaults to "not-running".
 	waitCondition := containerpkg.WaitConditionNotRunning
 	if !legacyBehaviorPre130 {
+		u.Info("wait if 1")
 		if err := httputils.ParseForm(r); err != nil {
 			return err
 		}
@@ -354,25 +369,28 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 
 	if !legacyBehaviorPre130 {
 		// Write response header immediately.
+		u.Info("wait if 2")
 		w.WriteHeader(http.StatusOK)
 		if flusher, ok := w.(http.Flusher); ok {
 			flusher.Flush()
 		}
 	}
-
+	u.Info("after wait if 2")
 	// Block on the result of the wait operation.
 	status := <-waitC
-
+	u.Info("before wait if 3")
 	// With API < 1.34, wait on WaitConditionRemoved did not return
 	// in case container removal failed. The only way to report an
 	// error back to the client is to not write anything (i.e. send
 	// an empty response which will be treated as an error).
 	if legacyRemovalWaitPre134 && status.Err() != nil {
+		u.Info("wait if 3")
 		return nil
 	}
 
 	var waitError *container.ContainerWaitOKBodyError
 	if status.Err() != nil {
+		u.Info("wait if 4")
 		waitError = &container.ContainerWaitOKBodyError{Message: status.Err().Error()}
 	}
 
@@ -383,6 +401,7 @@ func (s *containerRouter) postContainersWait(ctx context.Context, w http.Respons
 }
 
 func (s *containerRouter) getContainersChanges(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersChanges"))
 	changes, err := s.backend.ContainerChanges(vars["name"])
 	if err != nil {
 		return err
@@ -392,6 +411,7 @@ func (s *containerRouter) getContainersChanges(ctx context.Context, w http.Respo
 }
 
 func (s *containerRouter) getContainersTop(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("getContainersTop"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -405,6 +425,7 @@ func (s *containerRouter) getContainersTop(ctx context.Context, w http.ResponseW
 }
 
 func (s *containerRouter) postContainerRename(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainerRename"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -419,6 +440,7 @@ func (s *containerRouter) postContainerRename(ctx context.Context, w http.Respon
 }
 
 func (s *containerRouter) postContainerUpdate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainerUpdate"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -458,6 +480,7 @@ func (s *containerRouter) postContainerUpdate(ctx context.Context, w http.Respon
 }
 
 func (s *containerRouter) postContainersCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersCreate"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -536,6 +559,7 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 }
 
 func (s *containerRouter) deleteContainers(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("deleteContainers"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -557,6 +581,7 @@ func (s *containerRouter) deleteContainers(ctx context.Context, w http.ResponseW
 }
 
 func (s *containerRouter) postContainersResize(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersResize"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -574,6 +599,7 @@ func (s *containerRouter) postContainersResize(ctx context.Context, w http.Respo
 }
 
 func (s *containerRouter) postContainersAttach(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersAttach"))
 	err := httputils.ParseForm(r)
 	if err != nil {
 		return err
@@ -638,6 +664,7 @@ func (s *containerRouter) postContainersAttach(ctx context.Context, w http.Respo
 }
 
 func (s *containerRouter) wsContainersAttach(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("wsContainersAttach"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}
@@ -700,6 +727,7 @@ func (s *containerRouter) wsContainersAttach(ctx context.Context, w http.Respons
 }
 
 func (s *containerRouter) postContainersPrune(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	defer u.Duration(u.Track("postContainersPrune"))
 	if err := httputils.ParseForm(r); err != nil {
 		return err
 	}

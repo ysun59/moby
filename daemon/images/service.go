@@ -20,6 +20,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 type containerStore interface {
@@ -126,6 +127,7 @@ func (i *ImageService) Children(id image.ID) []image.ID {
 // called from create.go
 // TODO: accept an opt struct instead of container?
 func (i *ImageService) CreateLayer(container *container.Container, initFunc layer.MountInit) (layer.RWLayer, error) {
+	defer u.Duration(u.Track("CreateLayer"))
 	var layerID layer.ChainID
 	if container.ImageID != "" {
 		img, err := i.imageStore.Get(container.ImageID)

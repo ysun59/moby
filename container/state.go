@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	units "github.com/docker/go-units"
+	u "github.com/docker/docker/utils"
 )
 
 // State holds the current container state, and has methods to get and
@@ -179,9 +180,13 @@ const (
 // otherwise, the results Err() method will return an error indicating why the
 // wait operation failed.
 func (s *State) Wait(ctx context.Context, condition WaitCondition) <-chan StateStatus {
+	defer u.Duration(u.Track("Wait"))
+	tik := u.Tik("Lock")
 	s.Lock()
 	defer s.Unlock()
+	u.Duration("Lock", tik)
 
+	tik = u.Tik("WaitConditionNotRunning")
 	if condition == WaitConditionNotRunning && !s.Running {
 		// Buffer so we can put it in the channel now.
 		resultC := make(chan StateStatus, 1)
@@ -194,22 +199,34 @@ func (s *State) Wait(ctx context.Context, condition WaitCondition) <-chan StateS
 
 		return resultC
 	}
+	u.Duration("WaitConditionNotRunning", tik)
 
 	// If we are waiting only for removal, the waitStop channel should
 	// remain nil and block forever.
 	var waitStop chan struct{}
+
+	tik = u.Tik("WaitConditionRemoved")
 	if condition < WaitConditionRemoved {
 		waitStop = s.waitStop
 	}
+	u.Duration("WaitConditionRemoved", tik)
 
 	// Always wait for removal, just in case the container gets removed
 	// while it is still in a "created" state, in which case it is never
 	// actually stopped.
+	tik = u.Tik("waitRemove")
 	waitRemove := s.waitRemove
+	u.Duration("waitRemove", tik)
 
+	tik = u.Tik("make")
 	resultC := make(chan StateStatus)
+	u.Duration("make", tik)
 
+	tik = u.Tik("async func")
 	go func() {
+		u.Info("enter async func")
+
+		tik = u.Tik("select")
 		select {
 		case <-ctx.Done():
 			// Context timeout or cancellation.
@@ -221,16 +238,21 @@ func (s *State) Wait(ctx context.Context, condition WaitCondition) <-chan StateS
 		case <-waitStop:
 		case <-waitRemove:
 		}
+		u.Duration("select", tik)
+		u.Info("after select")
 
+		tik = u.Tik("result getStateStatus")
 		s.Lock()
 		result := StateStatus{
 			exitCode: s.ExitCode(),
 			err:      s.Err(),
 		}
 		s.Unlock()
+		u.Duration("result getStateStatus", tik)
 
 		resultC <- result
 	}()
+	u.Duration("async func", tik)
 
 	return resultC
 }

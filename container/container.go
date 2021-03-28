@@ -41,6 +41,7 @@ import (
 	"github.com/moby/sys/symlink"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 const configFileName = "config.v2.json"
@@ -160,31 +161,46 @@ func (container *Container) FromDisk() error {
 
 // toDisk saves the container configuration on disk and returns a deep copy.
 func (container *Container) toDisk() (*Container, error) {
+	defer u.Duration(u.Track("toDisk"))
 	var (
 		buf      bytes.Buffer
 		deepCopy Container
 	)
+	tik := u.Tik("ConfigPath")
 	pth, err := container.ConfigPath()
+	u.Duration("ConfigPath", tik)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save container settings
+	tik = u.Tik("NewAtomicFileWriter")
 	f, err := ioutils.NewAtomicFileWriter(pth, 0600)
+	u.Duration("NewAtomicFileWriter", tik)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
+	tik = u.Tik("MultiWriter")
 	w := io.MultiWriter(&buf, f)
+	u.Duration("MultiWriter", tik)
+	tik = u.Tik("Encode")
 	if err := json.NewEncoder(w).Encode(container); err != nil {
 		return nil, err
 	}
+	u.Duration("Encode", tik)
 
+	tik = u.Tik("Decode")
 	if err := json.NewDecoder(&buf).Decode(&deepCopy); err != nil {
 		return nil, err
 	}
+	u.Duration("Decode", tik)
+
+//	tik = u.Tik("WriteHostConfig")
 	deepCopy.HostConfig, err = container.WriteHostConfig()
+//	u.Duration("WriteHostConfig", tik)
+
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +211,19 @@ func (container *Container) toDisk() (*Container, error) {
 // CheckpointTo makes the Container's current state visible to queries, and persists state.
 // Callers must hold a Container lock.
 func (container *Container) CheckpointTo(store ViewDB) error {
+	defer u.Duration(u.Track("CheckpointTo"))
+
+//	if container.Checkpoint == "" {
+//		u.Info("checkpoint is empty")
+//	}
+	if container.CheckpointDir() == "" {
+		u.Info("checkpointDir is empty")
+	}
+
+	u.Infof("container.Name is: %s", container.Name)
+	u.Infof("container.ID is: %s", container.ID)
+	u.Infof("container.CheckpointDir() is: %s", container.CheckpointDir())
+
 	deepCopy, err := container.toDisk()
 	if err != nil {
 		return err
@@ -234,6 +263,7 @@ func (container *Container) readHostConfig() error {
 // WriteHostConfig saves the host configuration on disk for the container,
 // and returns a deep copy of the saved object. Callers must hold a Container lock.
 func (container *Container) WriteHostConfig() (*containertypes.HostConfig, error) {
+	defer u.Duration(u.Track("WriteHostConfig"))
 	var (
 		buf      bytes.Buffer
 		deepCopy containertypes.HostConfig

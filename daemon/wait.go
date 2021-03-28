@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/docker/container"
+	u "github.com/docker/docker/utils"
 )
 
 // ContainerWait waits until the given container is in a certain state
@@ -14,10 +15,10 @@ import (
 // context timeout or cancellation). On a successful wait, the exit code of the
 // container is returned in the status with a non-nil Err() value.
 func (daemon *Daemon) ContainerWait(ctx context.Context, name string, condition container.WaitCondition) (<-chan container.StateStatus, error) {
+	defer u.Duration(u.Track("ContainerWait"))
 	cntr, err := daemon.GetContainer(name)
 	if err != nil {
 		return nil, err
 	}
-
 	return cntr.Wait(ctx, condition), nil
 }

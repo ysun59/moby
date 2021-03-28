@@ -71,6 +71,7 @@ import (
 	"github.com/moby/locker"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
+	u "github.com/docker/docker/utils"
 )
 
 // ContainersNamespace is the name of the namespace used for users containers
@@ -752,6 +753,8 @@ func (daemon *Daemon) IsSwarmCompatible() error {
 // NewDaemon sets up everything for the daemon to be able to service
 // requests from the webserver.
 func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.Store) (daemon *Daemon, err error) {
+	defer u.Duration(u.Track("NewDaemon"))
+
 	setDefaultMtu(config)
 
 	registryService, err := registry.NewService(config.ServiceOptions)
@@ -1311,6 +1314,7 @@ func (daemon *Daemon) Shutdown() error {
 // Mount sets container.BaseFS
 // (is it not set coming in? why is it unset?)
 func (daemon *Daemon) Mount(container *container.Container) error {
+	defer u.Duration(u.Track("Mount"))
 	if container.RWLayer == nil {
 		return errors.New("RWLayer of container " + container.ID + " is unexpectedly nil")
 	}
@@ -1336,6 +1340,7 @@ func (daemon *Daemon) Mount(container *container.Container) error {
 
 // Unmount unsets the container base filesystem
 func (daemon *Daemon) Unmount(container *container.Container) error {
+	defer u.Duration(u.Track("Unmount"))
 	if container.RWLayer == nil {
 		return errors.New("RWLayer of container " + container.ID + " is unexpectedly nil")
 	}

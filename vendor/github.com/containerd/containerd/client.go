@@ -65,6 +65,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	u "github.com/docker/docker/utils"
 )
 
 func init() {
@@ -80,6 +81,7 @@ func init() {
 // New returns a new containerd client that is connected to the containerd
 // instance provided by address
 func New(address string, opts ...ClientOpt) (*Client, error) {
+	defer u.Duration(u.Track("New Containerd client"))
 	var copts clientOpts
 	for _, o := range opts {
 		if err := o(&copts); err != nil {
@@ -261,6 +263,7 @@ func (c *Client) Containers(ctx context.Context, filters ...string) ([]Container
 // NewContainer will create a new container in container with the provided id
 // the id must be unique within the namespace
 func (c *Client) NewContainer(ctx context.Context, id string, opts ...NewContainerOpts) (Container, error) {
+	defer u.Duration(u.Track("containerd/client.go NewContainer"))
 	ctx, done, err := c.WithLease(ctx)
 	if err != nil {
 		return nil, err
@@ -274,6 +277,7 @@ func (c *Client) NewContainer(ctx context.Context, id string, opts ...NewContain
 		},
 	}
 	for _, o := range opts {
+		u.Info("if 1")
 		if err := o(ctx, c, &container); err != nil {
 			return nil, err
 		}

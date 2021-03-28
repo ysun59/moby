@@ -14,10 +14,12 @@ import (
 	"github.com/moby/term"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/docker/docker/utils"
 )
 
 // ContainerAttach attaches to logs according to the config passed in. See ContainerAttachConfig.
 func (daemon *Daemon) ContainerAttach(prefixOrName string, c *backend.ContainerAttachConfig) error {
+	defer u.Duration(u.Track("ContainerAttach"))
 	keys := []byte{}
 	var err error
 	if c.DetachKeys != "" {

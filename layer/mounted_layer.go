@@ -6,6 +6,7 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/containerfs"
+	u "github.com/docker/docker/utils"
 )
 
 type mountedLayer struct {
@@ -107,6 +108,8 @@ func (rl *referencedRWLayer) Mount(mountLabel string) (containerfs.ContainerFS, 
 // Unmount decrements the activity count and unmounts the underlying layer
 // Callers should only call `Unmount` once per call to `Mount`, even on error.
 func (rl *referencedRWLayer) Unmount() error {
+	defer u.Duration(u.Track("unmounts the underlying layer"))
+	u.Infof("Put2 Unmount rl.mountedLayer.mountID is: %s", rl.mountedLayer.mountID)
 	return rl.layerStore.driver.Put(rl.mountedLayer.mountID)
 }
 

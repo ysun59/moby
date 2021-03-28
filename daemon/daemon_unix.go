@@ -51,6 +51,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	u "github.com/docker/docker/utils"
 )
 
 const (
@@ -1306,12 +1307,16 @@ func getUnmountOnShutdownPath(config *config.Config) string {
 
 // registerLinks writes the links to a file.
 func (daemon *Daemon) registerLinks(container *container.Container, hostConfig *containertypes.HostConfig) error {
+	defer u.Duration(u.Track("registerLinks"))
 	if hostConfig == nil || hostConfig.NetworkMode.IsUserDefined() {
 		return nil
 	}
 
 	for _, l := range hostConfig.Links {
+		tik := u.Tik("ParseLink")
 		name, alias, err := opts.ParseLink(l)
+		u.Duration("ParseLink", tik)
+
 		if err != nil {
 			return err
 		}
@@ -1363,6 +1368,7 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // conditionalUnmountOnCleanup is a platform specific helper function called
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
+	defer u.Duration(u.Track("unmount-conditionalUnmountOnCleanup"))
 	return daemon.Unmount(container)
 }
 
