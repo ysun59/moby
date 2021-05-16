@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/restartmanager"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 func (daemon *Daemon) setStateCounter(c *container.Container) {
@@ -26,12 +26,12 @@ func (daemon *Daemon) setStateCounter(c *container.Container) {
 }
 
 func (daemon *Daemon) handleContainerExit(c *container.Container, e *libcontainerdtypes.EventInfo) error {
-	defer u.Duration(u.Track("handleContainerExit"))
+	defer u.LogEnd(u.LogBegin("handleCntrExit"))
 	c.Lock()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	tik := u.Tik("DeleteTask")
+	d, t := u.LogBegin("DeleteTask")
 	ec, et, err := daemon.containerd.DeleteTask(ctx, c.ID)
-	u.Duration("DeleteTask", tik)
+	u.LogEnd(d, t)
 	cancel()
 	if err != nil {
 		logrus.WithError(err).WithField("container", c.ID).Warnf("failed to delete container from containerd")

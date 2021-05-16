@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/distribution/digestset"
 	"github.com/opencontainers/go-digest"
+	u "github.com/YesZhen/superlog_go"
 )
 
 var (
@@ -31,6 +32,7 @@ type normalizedNamed interface {
 // qualified reference. If the value may be an identifier
 // use ParseAnyReference.
 func ParseNormalizedNamed(s string) (Named, error) {
+	defer u.LogEnd(u.LogBegin("ParseNormalizedName"))
 	if ok := anchoredIdentifierRegexp.MatchString(s); ok {
 		return nil, fmt.Errorf("invalid repository name (%s), cannot specify 64-byte hexadecimal strings", s)
 	}

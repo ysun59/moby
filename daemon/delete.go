@@ -14,7 +14,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // ContainerRm removes the container id from the filesystem. An error
@@ -22,7 +22,7 @@ import (
 // fails. If the remove succeeds, the container name is released, and
 // network links are removed.
 func (daemon *Daemon) ContainerRm(name string, config *types.ContainerRmConfig) error {
-	defer u.Duration(u.Track("ContainerRm"))
+	defer u.LogEnd(u.LogBegin("ContainerRm"))
 	start := time.Now()
 	container, err := daemon.GetContainer(name)
 	if err != nil {
@@ -52,7 +52,7 @@ func (daemon *Daemon) ContainerRm(name string, config *types.ContainerRmConfig) 
 }
 
 func (daemon *Daemon) rmLink(container *container.Container, name string) error {
-	defer u.Duration(u.Track("rmLink"))
+	defer u.LogEnd(u.LogBegin("rmLink"))
 	if name[0] != '/' {
 		name = "/" + name
 	}
@@ -81,7 +81,7 @@ func (daemon *Daemon) rmLink(container *container.Container, name string) error 
 // cleanupContainer unregisters a container from the daemon, stops stats
 // collection and cleanly removes contents and metadata from the filesystem.
 func (daemon *Daemon) cleanupContainer(container *container.Container, forceRemove, removeVolume bool) (err error) {
-	defer u.Duration(u.Track("cleanupContainer"))
+	defer u.LogEnd(u.LogBegin("cleanupContainer"))
 	if container.IsRunning() {
 		if !forceRemove {
 			state := container.StateString()

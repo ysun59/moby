@@ -16,43 +16,43 @@ import (
 	volumeopts "github.com/docker/docker/volume/service/opts"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // createContainerOSSpecificSettings performs host-OS specific container create functionality
 func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig) error {
-	defer u.Duration(u.Track("createContainerOSSpecificSettings"))
-	tik := u.Tik("Mount")
+	defer u.LogEnd(u.LogBegin("createContainerOSSpecificSettings"))
+	d, t := u.LogBegin("Mount")
 	if err := daemon.Mount(container); err != nil {
 		return err
 	}
-	u.Duration("Mount", tik)
+	u.LogEnd(d, t)
 	defer daemon.Unmount(container)
 
-	tik = u.Tik("RootPair")
+//	d, t = u.LogBegin("RootPair")
 	rootIDs := daemon.idMapping.RootPair()
-	u.Duration("RootPair", tik)
-	tik = u.Tik("SetupWorkingDirectory")
+//	u.LogEnd(d, t)
+//	d, t = u.LogBegin("SetupWorkingDirectory")
 	if err := container.SetupWorkingDirectory(rootIDs); err != nil {
 		return err
 	}
-	u.Duration("SetupWorkingDirectory", tik)
+//	u.LogEnd(d, t)
 
-	tik = u.Tik("if 1")
+//	d, t = u.LogBegin("if 1")
 	// Set the default masked and readonly paths with regard to the host config options if they are not set.
 	if hostConfig.MaskedPaths == nil && !hostConfig.Privileged {
 		hostConfig.MaskedPaths = oci.DefaultSpec().Linux.MaskedPaths // Set it to the default if nil
 		container.HostConfig.MaskedPaths = hostConfig.MaskedPaths
 	}
-	u.Duration("if 1", tik)
-	tik = u.Tik("if 2")
+//	u.LogEnd(d, t)
+//	d, t = u.LogBegin("if 2")
 	if hostConfig.ReadonlyPaths == nil && !hostConfig.Privileged {
 		hostConfig.ReadonlyPaths = oci.DefaultSpec().Linux.ReadonlyPaths // Set it to the default if nil
 		container.HostConfig.ReadonlyPaths = hostConfig.ReadonlyPaths
 	}
-	u.Duration("if 2", tik)
-
-	tik = u.Tik("if 3")
+//	u.LogEnd(d, t)
+	u.Info("Time 4")
+	d, t = u.LogBegin("volumes.Create")
 	for spec := range config.Volumes {
 		name := stringid.GenerateRandomID()
 		destination := filepath.Clean(spec)
@@ -73,8 +73,21 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 		if err == nil && !stat.IsDir() {
 			return fmt.Errorf("cannot mount volume over existing file, file exists %s", path)
 		}
-
+		u.Info("Time 10")
+		u.Infof("name is: %s", name)
+		u.Infof("driver name is: %s", hostConfig.VolumeDriver)
+		u.Infof("container id is: %s", container.ID)
 		v, err := daemon.volumes.Create(context.TODO(), name, hostConfig.VolumeDriver, volumeopts.WithCreateReference(container.ID))
+
+		u.Infof("v name is: %s", v.Name)
+		u.Infof("v Driver is: %s", v.Driver)
+		u.Infof("v Mountpoint is: %s", v.Mountpoint)
+		for labelkey := range v.Labels {
+			u.Infof("labelKey is %s, labelValue is %s", labelkey, v.Labels[labelkey])
+		}
+		u.Infof("v Scope is: %s", v.Scope)
+
+		u.Info("Time 11")
 		if err != nil {
 			return err
 		}
@@ -84,8 +97,10 @@ func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Con
 		}
 
 		container.AddMountPointWithVolume(destination, &volumeWrapper{v: v, s: daemon.volumes}, true)
+		u.Infof("destination is: %s", destination)
 	}
-	u.Duration("if 3", tik)
+	u.LogEnd(d, t)
+	u.Info("Time 5")
 	return daemon.populateVolumes(container)
 }
 

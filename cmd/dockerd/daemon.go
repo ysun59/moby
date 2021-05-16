@@ -56,7 +56,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // DaemonCli represents the daemon CLI.
@@ -77,7 +77,7 @@ func NewDaemonCli() *DaemonCli {
 
 func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	u.Info("enter cmd start")
-	defer u.Duration(u.Track("cmd start"))
+	defer u.LogEnd(u.LogBegin("cmd start"))
 	stopc := make(chan bool)
 	defer close(stopc)
 

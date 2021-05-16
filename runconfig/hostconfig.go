@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // DecodeHostConfig creates a HostConfig based on the specified Reader.
@@ -28,7 +28,7 @@ func decodeHostConfig(src io.Reader) (*container.HostConfig, error) {
 // the validation of the network mode was moved from the docker CLI to the
 // docker daemon.
 func SetDefaultNetModeIfBlank(hc *container.HostConfig) {
-	defer u.Duration(u.Track("SetDefaultNetModeIfBlank"))
+	defer u.LogEnd(u.LogBegin("SetDefaNetModeIfBnk"))
 	if hc != nil {
 		if hc.NetworkMode == container.NetworkMode("") {
 			hc.NetworkMode = container.NetworkMode("default")

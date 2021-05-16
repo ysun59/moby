@@ -41,7 +41,7 @@ import (
 	"github.com/moby/sys/symlink"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 const configFileName = "config.v2.json"
@@ -161,45 +161,45 @@ func (container *Container) FromDisk() error {
 
 // toDisk saves the container configuration on disk and returns a deep copy.
 func (container *Container) toDisk() (*Container, error) {
-	defer u.Duration(u.Track("toDisk"))
+	defer u.LogEnd(u.LogBegin("toDisk"))
 	var (
 		buf      bytes.Buffer
 		deepCopy Container
 	)
-	tik := u.Tik("ConfigPath")
+//	d, t := u.LogBegin("ConfigPath")
 	pth, err := container.ConfigPath()
-	u.Duration("ConfigPath", tik)
+//	u.LogEnd(d, t)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save container settings
-	tik = u.Tik("NewAtomicFileWriter")
+//	d, t = u.LogBegin("NewAtomicFileWriter")
 	f, err := ioutils.NewAtomicFileWriter(pth, 0600)
-	u.Duration("NewAtomicFileWriter", tik)
+//	u.LogEnd(d, t)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	tik = u.Tik("MultiWriter")
+//	d, t = u.LogBegin("MultiWriter")
 	w := io.MultiWriter(&buf, f)
-	u.Duration("MultiWriter", tik)
-	tik = u.Tik("Encode")
+//	u.LogEnd(d, t)
+//	d, t = u.LogBegin("Encode")
 	if err := json.NewEncoder(w).Encode(container); err != nil {
 		return nil, err
 	}
-	u.Duration("Encode", tik)
+//	u.LogEnd(d, t)
 
-	tik = u.Tik("Decode")
+//	d, t = u.LogBegin("Decode")
 	if err := json.NewDecoder(&buf).Decode(&deepCopy); err != nil {
 		return nil, err
 	}
-	u.Duration("Decode", tik)
+//	u.LogEnd(d, t)
 
-//	tik = u.Tik("WriteHostConfig")
+//	d, t = u.LogBegin("WriteHostConfig")
 	deepCopy.HostConfig, err = container.WriteHostConfig()
-//	u.Duration("WriteHostConfig", tik)
+//	u.LogEnd(d, t)
 
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (container *Container) toDisk() (*Container, error) {
 // CheckpointTo makes the Container's current state visible to queries, and persists state.
 // Callers must hold a Container lock.
 func (container *Container) CheckpointTo(store ViewDB) error {
-	defer u.Duration(u.Track("CheckpointTo"))
+	defer u.LogEnd(u.LogBegin("CheckpointTo"))
 
 //	if container.Checkpoint == "" {
 //		u.Info("checkpoint is empty")
@@ -263,7 +263,7 @@ func (container *Container) readHostConfig() error {
 // WriteHostConfig saves the host configuration on disk for the container,
 // and returns a deep copy of the saved object. Callers must hold a Container lock.
 func (container *Container) WriteHostConfig() (*containertypes.HostConfig, error) {
-	defer u.Duration(u.Track("WriteHostConfig"))
+	defer u.LogEnd(u.LogBegin("WriteHostConfig"))
 	var (
 		buf      bytes.Buffer
 		deepCopy containertypes.HostConfig
@@ -503,6 +503,7 @@ func (container *Container) ShouldRestart() bool {
 
 // AddMountPointWithVolume adds a new mount point configured with a volume to the container.
 func (container *Container) AddMountPointWithVolume(destination string, vol volume.Volume, rw bool) {
+	defer u.LogEnd(u.LogBegin("+MountPointVol"))
 	operatingSystem := container.OS
 	if operatingSystem == "" {
 		operatingSystem = runtime.GOOS

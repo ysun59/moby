@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 func (daemon *Daemon) setupLinkedContainers(container *container.Container) ([]string, error) {
@@ -338,21 +338,21 @@ func (daemon *Daemon) cleanupSecretDir(c *container.Container) {
 }
 
 func killProcessDirectly(cntr *container.Container) error {
-	defer u.Duration(u.Track("killProcessDirectly"))
+	defer u.LogEnd(u.LogBegin("killProcessDirectly"))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Block until the container to stops or timeout.
-	tik := u.Tik("wait")
+	d, t := u.LogBegin("wait")
 	status := <-cntr.Wait(ctx, container.WaitConditionNotRunning)
-	u.Duration("wait", tik)
+	u.LogEnd(d, t)
 	if status.Err() != nil {
 		// Ensure that we don't kill ourselves
-		tik = u.Tik("GetPID")
+		d, t = u.LogBegin("GetPID")
 		if pid := cntr.GetPID(); pid != 0 {
 			logrus.Infof("Container %s failed to exit within 10 seconds of kill - trying direct SIGKILL", stringid.TruncateID(cntr.ID))
 
-			//tik = u.Tik("unixKill")
+			//d, t = u.LogBegin("unixKill")
 			if err := unix.Kill(pid, 9); err != nil {
 				if err != unix.ESRCH {
 					return err
@@ -361,10 +361,10 @@ func killProcessDirectly(cntr *container.Container) error {
 				logrus.Debug(e)
 				return e
 			}
-			//u.Duration("unixKill", tik)
+			//u.LogEnd(d, t)
 
 			// In case there were some exceptions(e.g., state of zombie and D)
-			tik = u.Tik("IsProcessAlive")
+			d, t = u.LogBegin("IsProcessAlive")
 			if system.IsProcessAlive(pid) {
 
 				// Since we can not kill a zombie pid, add zombie check here
@@ -377,9 +377,9 @@ func killProcessDirectly(cntr *container.Container) error {
 					return errdefs.System(errors.Errorf("container %s PID %d is zombie and can not be killed. Use the --init option when creating containers to run an init inside the container that forwards signals and reaps processes", stringid.TruncateID(cntr.ID), pid))
 				}
 			}
-			u.Duration("IsProcessAlive", tik)
+			u.LogEnd(d, t)
 		}
-		u.Duration("GetPID", tik)
+		u.LogEnd(d, t)
 	}
 	return nil
 }

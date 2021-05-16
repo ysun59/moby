@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // txid represents the internal transaction identifier.
@@ -139,6 +140,7 @@ func (tx *Tx) OnCommit(fn func()) {
 // Returns an error if a disk write error occurs, or if Commit is
 // called on a read-only transaction.
 func (tx *Tx) Commit() error {
+	defer u.LogEnd(u.LogBegin("volume Commit"))
 	_assert(!tx.managed, "managed tx commit not allowed")
 	if tx.db == nil {
 		return ErrTxClosed
@@ -512,6 +514,7 @@ func (tx *Tx) allocate(count int) (*page, error) {
 
 // write writes any dirty pages to disk.
 func (tx *Tx) write() error {
+	defer u.LogEnd(u.LogBegin("volume writeDirtyPage"))
 	// Sort pages by id.
 	pages := make(pages, 0, len(tx.pages))
 	for _, p := range tx.pages {
@@ -583,6 +586,7 @@ func (tx *Tx) write() error {
 
 // writeMeta writes the meta to the disk.
 func (tx *Tx) writeMeta() error {
+	defer u.LogEnd(u.LogBegin("volume writeMeta"))
 	// Create a temporary buffer for the meta page.
 	buf := make([]byte, tx.db.pageSize)
 	p := tx.db.pageInBuffer(buf, 0)
@@ -592,6 +596,7 @@ func (tx *Tx) writeMeta() error {
 	if _, err := tx.db.ops.writeAt(buf, int64(p.id)*int64(tx.db.pageSize)); err != nil {
 		return err
 	}
+
 	if !tx.db.NoSync || IgnoreNoSync {
 		if err := fdatasync(tx.db); err != nil {
 			return err

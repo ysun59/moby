@@ -11,12 +11,12 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // ContainerStart starts a container.
 func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.HostConfig, checkpoint string, checkpointDir string) error {
-	defer u.Duration(u.Track("ContainerStart"))
+	defer u.LogEnd(u.LogBegin("ContainerStart"))
 	if checkpoint != "" && !daemon.HasExperimental() {
 		return errdefs.InvalidParameter(errors.New("checkpoint is only supported in experimental mode"))
 	}
@@ -101,7 +101,7 @@ func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.Hos
 // between containers. The container is left waiting for a signal to
 // begin running.
 func (daemon *Daemon) containerStart(container *container.Container, checkpoint string, checkpointDir string, resetRestartManager bool) (err error) {
-	defer u.Duration(u.Track("containerStart"))
+	defer u.LogEnd(u.LogBegin("containerStart"))
 	start := time.Now()
 	container.Lock()
 	defer container.Unlock()
@@ -154,9 +154,9 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 		return err
 	}
 
-	tik := u.Tik("createSpec")
+	d, t := u.LogBegin("createSpec")
 	spec, err := daemon.createSpec(container)
-	u.Duration("createSpec", tik)
+	u.LogEnd(d, t)
 	if err != nil {
 		u.Info("if 1")
 		return errdefs.System(err)
@@ -193,9 +193,9 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 	u.Infof("container.ID is: %s", container.ID)
 	u.Infof("container.CheckpointDir() is: %s", container.CheckpointDir())
 
-	tik = u.Tik("getLibcontainerdCreateOptions")
+	d, t = u.LogBegin("getLibcontainerdCreateOptions")
 	shim, createOptions, err := daemon.getLibcontainerdCreateOptions(container)
-	u.Duration("getLibcontainerdCreateOptions", tik)
+	u.LogEnd(d, t)
 	if err != nil {
 		u.Info("if 6")
 		return err
@@ -203,11 +203,11 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 
 	ctx := context.TODO()
 
-	tik = u.Tik("Create")
+	d, t = u.LogBegin("Create")
 	err = daemon.containerd.Create(ctx, container.ID, spec, shim, createOptions)
 	u.Infof("container.ID is: %s", container.ID)
 	u.Infof("createOptions is: %s", createOptions)
-	u.Duration("Create", tik)
+	u.LogEnd(d, t)
 	if err != nil {
 		u.Info("if 7")
 		if errdefs.IsConflict(err) {
@@ -228,11 +228,11 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 	}
 
 	// TODO(mlaventure): we need to specify checkpoint options here
-	tik = u.Tik("Start")
+	d, t = u.LogBegin("Start")
 	pid, err := daemon.containerd.Start(context.Background(), container.ID, checkpointDir,
 		container.StreamConfig.Stdin() != nil || container.Config.Tty,
 		container.InitializeStdio)
-	u.Duration("Start", tik)
+	u.LogEnd(d, t)
 	if err != nil {
 		if err := daemon.containerd.Delete(context.Background(), container.ID); err != nil {
 			logrus.WithError(err).WithField("container", container.ID).
@@ -252,12 +252,12 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 			Errorf("failed to store container")
 	}
 
-	tik = u.Tik("LogContainerEvent")
+//	d, t = u.LogBegin("LogContainerEvent")
 	daemon.LogContainerEvent(container, "start")
-	u.Duration("LogContainerEvent", tik)
-	tik = u.Tik("UpdateSince")
+//	u.LogEnd(d, t)
+//	d, t = u.LogBegin("UpdateSince")
 	containerActions.WithValues("start").UpdateSince(start)
-	u.Duration("UpdateSince", tik)
+//	u.LogEnd(d, t)
 
 	return nil
 }
@@ -265,10 +265,10 @@ func (daemon *Daemon) containerStart(container *container.Container, checkpoint 
 // Cleanup releases any network resources allocated to the container along with any rules
 // around how containers are linked together.  It also unmounts the container's root filesystem.
 func (daemon *Daemon) Cleanup(container *container.Container) {
-	defer u.Duration(u.Track("Cleanup"))
-	tik := u.Tik("releaseNetwork")
+	defer u.LogEnd(u.LogBegin("Cleanup"))
+	d, t := u.LogBegin("releaseNetwork")
 	daemon.releaseNetwork(container)
-	u.Duration("releaseNetwork", tik)
+	u.LogEnd(d, t)
 
 	if err := container.UnmountIpcMount(); err != nil {
 		logrus.Warnf("%s cleanup: failed to unmount IPC: %s", container.ID, err)
@@ -303,9 +303,9 @@ func (daemon *Daemon) Cleanup(container *container.Container) {
 
 	container.CancelAttachContext()
 
-	tik = u.Tik("Delete")
+	d, t = u.LogBegin("Delete")
 	if err := daemon.containerd.Delete(context.Background(), container.ID); err != nil {
 		logrus.Errorf("%s cleanup: failed to delete container from containerd: %v", container.ID, err)
 	}
-	u.Duration("Delete", tik)
+	u.LogEnd(d, t)
 }

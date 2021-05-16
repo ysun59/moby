@@ -19,7 +19,7 @@ import (
 	reflect "reflect"
 	strings "strings"
 	time "time"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -584,7 +584,7 @@ func NewLeasesClient(cc *grpc.ClientConn) LeasesClient {
 }
 
 func (c *leasesClient) Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error) {
-	defer u.Duration(u.Track("leases.pb.go Create"))
+	defer u.LogEnd(u.LogBegin("leases.pb.go Create"))
 	out := new(CreateResponse)
 	err := c.cc.Invoke(ctx, "/containerd.services.leases.v1.Leases/Create", in, out, opts...)
 	if err != nil {
@@ -594,7 +594,7 @@ func (c *leasesClient) Create(ctx context.Context, in *CreateRequest, opts ...gr
 }
 
 func (c *leasesClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	defer u.Duration(u.Track("leases.pb.go Delete"))
+	defer u.LogEnd(u.LogBegin("leases.pb.go Delete"))
 	out := new(types.Empty)
 	err := c.cc.Invoke(ctx, "/containerd.services.leases.v1.Leases/Delete", in, out, opts...)
 	if err != nil {

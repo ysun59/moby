@@ -19,7 +19,7 @@ import (
 	reflect "reflect"
 	strings "strings"
 	time "time"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -728,7 +728,7 @@ func (x *containersListStreamClient) Recv() (*ListContainerMessage, error) {
 }
 
 func (c *containersClient) Create(ctx context.Context, in *CreateContainerRequest, opts ...grpc.CallOption) (*CreateContainerResponse, error) {
-	defer u.Duration(u.Track("containers.pb.go Create"))
+	defer u.LogEnd(u.LogBegin("containers.pb.go Create"))
 	out := new(CreateContainerResponse)
 	err := c.cc.Invoke(ctx, "/containerd.services.containers.v1.Containers/Create", in, out, opts...)
 	if err != nil {
@@ -747,11 +747,11 @@ func (c *containersClient) Update(ctx context.Context, in *UpdateContainerReques
 }
 
 func (c *containersClient) Delete(ctx context.Context, in *DeleteContainerRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	defer u.Duration(u.Track("containers.pb.go Delete"))
+	defer u.LogEnd(u.LogBegin("containers.pb.go Delete"))
 	out := new(types.Empty)
-	tik := u.Tik("Invoke")
+	d, t := u.LogBegin("Invoke")
 	err := c.cc.Invoke(ctx, "/containerd.services.containers.v1.Containers/Delete", in, out, opts...)
-	u.Duration("Invoke", tik)
+	u.LogEnd(d, t)
 	if err != nil {
 		return nil, err
 	}

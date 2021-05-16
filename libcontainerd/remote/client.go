@@ -35,7 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // DockerContainerBundlePath is the label key pointing to the container's bundle path
@@ -129,7 +129,7 @@ func (c *client) Restore(ctx context.Context, id string, attachStdio libcontaine
 }
 
 func (c *client) Create(ctx context.Context, id string, ociSpec *specs.Spec, shim string, runtimeOptions interface{}, opts ...containerd.NewContainerOpts) error {
-	defer u.Duration(u.Track("client.go Create"))
+	defer u.LogEnd(u.LogBegin("client.go Create"))
 	bdir := c.bundleDir(id)
 	c.logger.WithField("bundle", bdir).WithField("root", ociSpec.Root.Path).Debug("bundle dir created")
 
@@ -160,10 +160,10 @@ func (c *client) Create(ctx context.Context, id string, ociSpec *specs.Spec, shi
 
 // Start create and start a task for the specified containerd id
 func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin bool, attachStdio libcontainerdtypes.StdioCallback) (int, error) {
-	defer u.Duration(u.Track("client.go Start"))
-	tik := u.Tik("getContainer")
+	defer u.LogEnd(u.LogBegin("client.go Start"))
+	d, ti := u.LogBegin("getContainer")
 	ctr, err := c.getContainer(ctx, id)
-	u.Duration("getContainer", tik)
+	u.LogEnd(d, ti)
 	if err != nil {
 		return -1, err
 	}
@@ -176,16 +176,16 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 
 	if checkpointDir != "" {
 		// write checkpoint to the content store
-		tik := u.Tik("write checkpoint")
+		d, ti := u.LogBegin("write checkpoint")
 		tar := archive.Diff(ctx, "", checkpointDir)
-		u.Duration("write checkpoint", tik)
+		u.LogEnd(d, ti)
 		cp, err = c.writeContent(ctx, images.MediaTypeContainerd1Checkpoint, checkpointDir, tar)
 		// remove the checkpoint when we're done
 		defer func() {
 			if cp != nil {
-				tik := u.Tik("remove checkpoint")
+				d, ti := u.LogBegin("remove checkpoint")
 				err := c.client.ContentStore().Delete(context.Background(), cp.Digest)
-				u.Duration("remove checkpoint", tik)
+				u.LogEnd(d, ti)
 				if err != nil {
 					c.logger.WithError(err).WithFields(logrus.Fields{
 						"ref":    checkpointDir,
@@ -220,7 +220,7 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 		},
 	}
 
-	tik = u.Tik("if != windows")
+	d, ti = u.LogBegin("if != windows")
 	if runtime.GOOS != "windows" {
 		taskOpts = append(taskOpts, func(_ context.Context, _ *containerd.Client, info *containerd.TaskInfo) error {
 			c.v2runcoptionsMu.Lock()
@@ -242,9 +242,9 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 	} else {
 		taskOpts = append(taskOpts, withLogLevel(c.logger.Level))
 	}
-	u.Duration("if != windows", tik)
+	u.LogEnd(d, ti)
 
-	tik = u.Tik("NewTask")
+	d, ti = u.LogBegin("NewTask")
 	t, err = ctr.NewTask(ctx,
 		func(id string) (cio.IO, error) {
 			fifos := newFIFOSet(bundle, libcontainerdtypes.InitProcessName, withStdin, spec.Process.Terminal)
@@ -254,7 +254,7 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 		},
 		taskOpts...,
 	)
-	u.Duration("NewTask", tik)
+	u.LogEnd(d, ti)
 
 	if err != nil {
 		close(stdinCloseSync)
@@ -266,11 +266,11 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 	}
 
 	// Signal c.createIO that it can call CloseIO
-	tik = u.Tik("close")
+	d, ti = u.LogBegin("close")
 	close(stdinCloseSync)
-	u.Duration("close", tik)
+	u.LogEnd(d, ti)
 
-	tik = u.Tik("Start in Start")
+	d, ti = u.LogBegin("Start in Start")
 	if err := t.Start(ctx); err != nil {
 		if _, err := t.Delete(ctx); err != nil {
 			c.logger.WithError(err).WithField("container", id).
@@ -278,7 +278,7 @@ func (c *client) Start(ctx context.Context, id, checkpointDir string, withStdin 
 		}
 		return -1, wrapError(err)
 	}
-	u.Duration("Start in Start", tik)
+	u.LogEnd(d, ti)
 
 	return int(t.Pid()), nil
 }
@@ -467,7 +467,7 @@ type restoredProcess struct {
 }
 
 func (p *restoredProcess) Delete(ctx context.Context) (uint32, time.Time, error) {
-	defer u.Duration(u.Track("client.go Delete1"))
+	defer u.LogEnd(u.LogBegin("client.go Delete1"))
 	if p.p == nil {
 		return 255, time.Now(), nil
 	}
@@ -479,7 +479,7 @@ func (p *restoredProcess) Delete(ctx context.Context) (uint32, time.Time, error)
 }
 
 func (c *client) DeleteTask(ctx context.Context, containerID string) (uint32, time.Time, error) {
-	defer u.Duration(u.Track("client.go DeleteTask"))
+	defer u.LogEnd(u.LogBegin("client.go DeleteTask"))
 	p, err := c.getProcess(ctx, containerID, libcontainerdtypes.InitProcessName)
 	if err != nil {
 		return 255, time.Now(), nil
@@ -493,7 +493,7 @@ func (c *client) DeleteTask(ctx context.Context, containerID string) (uint32, ti
 }
 
 func (c *client) Delete(ctx context.Context, containerID string) error {
-	defer u.Duration(u.Track("client.go Delete2"))
+	defer u.LogEnd(u.LogBegin("client.go Delete2"))
 	ctr, err := c.getContainer(ctx, containerID)
 
 //	u.Infof("ctx ID is %s: ", ctx.ID)
@@ -508,19 +508,19 @@ func (c *client) Delete(ctx context.Context, containerID string) error {
 		return err
 	}
 	bundle := labels[DockerContainerBundlePath]
-	u.Info("Time 6")
+//	u.Info("Time 6")
 	if err := ctr.Delete(ctx); err != nil {
 		return wrapError(err)
 	}
-	u.Info("Time 7")
+//	u.Info("Time 7")
 	c.oomMu.Lock()
 	delete(c.oom, containerID)
 	c.oomMu.Unlock()
-	u.Info("Time 8")
+//	u.Info("Time 8")
 	c.v2runcoptionsMu.Lock()
 	delete(c.v2runcoptions, containerID)
 	c.v2runcoptionsMu.Unlock()
-	u.Info("Time 9")
+//	u.Info("Time 9")
 	if os.Getenv("LIBCONTAINERD_NOCLEAN") != "1" {
 		u.Info("enter if 1")
 		if err := os.RemoveAll(bundle); err != nil {

@@ -21,7 +21,7 @@ import (
 	reflect "reflect"
 	strings "strings"
 	time "time"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1315,15 +1315,15 @@ func (c *tasksClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.
 }
 
 func (c *tasksClient) Delete(ctx context.Context, in *DeleteTaskRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
-	defer u.Duration(u.Track("tasks.pb.go Delete"))
+	defer u.LogEnd(u.LogBegin("tasks.pb.go Delete"))
 	out := new(DeleteResponse)
-	tik := u.Tik("Invoke")
+	d, t := u.LogBegin("Invoke")
 	err := c.cc.Invoke(ctx, "/containerd.services.tasks.v1.Tasks/Delete", in, out, opts...)
 //	u.Infof("err is: %s",err)
 //	err is: [<nil>]
 //	var *a int=nil
 //	err := nil
-	u.Duration("Invoke", tik)
+	u.LogEnd(d, t)
 	
 	if err != nil {
 		return nil, err

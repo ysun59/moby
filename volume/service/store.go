@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
+	u "github.com/YesZhen/superlog_go"
 )
 
 const (
@@ -449,6 +450,7 @@ func (s *VolumeStore) list(ctx context.Context, driverNames ...string) ([]volume
 // If the volume needs to be created with a reference to prevent race conditions
 // with volume cleanup, make sure to use the `CreateWithReference` option.
 func (s *VolumeStore) Create(ctx context.Context, name, driverName string, createOpts ...opts.CreateOption) (volume.Volume, error) {
+	defer u.LogEnd(u.LogBegin("volume Create2"))
 	var cfg opts.CreateConfig
 	for _, o := range createOpts {
 		o(&cfg)
@@ -553,6 +555,7 @@ func volumeExists(ctx context.Context, store *drivers.Store, v volume.Volume) (b
 // If the reference is stale, it will be purged and this create can continue.
 // It is expected that callers of this function hold any necessary locks.
 func (s *VolumeStore) create(ctx context.Context, name, driverName string, opts, labels map[string]string) (volume.Volume, error) {
+	defer u.LogEnd(u.LogBegin("volume Create3"))
 	// Validate the name in a platform-specific manner
 
 	// volume name validation is specific to the host os and not on container image

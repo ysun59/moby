@@ -33,7 +33,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 var (
@@ -296,7 +296,7 @@ func (d *Driver) Cleanup() error {
 // CreateReadWrite creates a layer that is writable for use as a container
 // file system.
 func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts) error {
-	defer u.Duration(u.Track("CreateReadWrite-overlay2.go"))
+	defer u.LogEnd(u.LogBegin("CreateReadWrite-overlay2.go"))
 	if opts == nil {
 		opts = &graphdriver.CreateOpts{
 			StorageOpt: make(map[string]string),
@@ -320,7 +320,7 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 // Create is used to create the upper, lower, and merge directories required for overlay fs for a given id.
 // The parent filesystem is used to configure these directories for the overlay.
 func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
-	defer u.Duration(u.Track("Create-overlay2.go"))
+	defer u.LogEnd(u.LogBegin("Create-overlay2.go"))
 	if opts != nil && len(opts.StorageOpt) != 0 {
 		if _, ok := opts.StorageOpt["size"]; ok {
 			return fmt.Errorf("--storage-opt size is only supported for ReadWrite Layers")
@@ -330,7 +330,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 }
 
 func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
-	defer u.Duration(u.Track("create-overlay2.go"))
+	defer u.LogEnd(u.LogBegin("create-overlay2.go"))
 	dir := d.dir(id)
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
@@ -429,7 +429,7 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 }
 
 func (d *Driver) getLower(parent string) (string, error) {
-	defer u.Duration(u.Track("getLower"))
+	defer u.LogEnd(u.LogBegin("getLower"))
 	parentDir := d.dir(parent)
 
 	// Ensure parent exists
@@ -501,7 +501,7 @@ func (d *Driver) Remove(id string) error {
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
 func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr error) {
-	defer u.Duration(u.Track("Get-overlay2.go"))
+	defer u.LogEnd(u.LogBegin("Get-overlay2.go"))
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
 	dir := d.dir(id)
@@ -617,20 +617,20 @@ func (d *Driver) Get(id, mountLabel string) (_ containerfs.ContainerFS, retErr e
 // It also removes the 'merged' directory to force the kernel to unmount the
 // overlay mount in other namespaces.
 func (d *Driver) Put(id string) error {
-	defer u.Duration(u.Track("Put-overlay2.go"))
+	defer u.LogEnd(u.LogBegin("Put-ovl.go"))
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
 	
-	tik := u.Tik("get directory")
+//	da, t := u.LogBegin("get directory")
 	dir := d.dir(id)
 	u.Infof("id is: %s", id)
 	u.Infof("dir is: %s", dir)
-	u.Duration("get directory", tik)
+//	u.LogEnd(da, t)
 
-	tik = u.Tik("get lowerFile")
+//	da, t = u.LogBegin("get lowerFile")
 	_, err := ioutil.ReadFile(path.Join(dir, lowerFile))
 	u.Infof("dir lowerFile is: %s", dir, lowerFile)
-	u.Duration("get lowerFile", tik)
+//	u.LogEnd(da, t)
 
 	if err != nil {
 		// If no lower, no mount happened and just return directly
@@ -640,23 +640,23 @@ func (d *Driver) Put(id string) error {
 		return err
 	}
 
-	tik = u.Tik("get mergedDirName")
+//	da, t = u.LogBegin("get mergedDirName")
 	mountpoint := path.Join(dir, mergedDirName)
 	u.Infof("dir mergedDirName is: %s", dir, mergedDirName)
-	u.Duration("get mergedDirName", tik)
+//	u.LogEnd(da, t)
 
-	tik = u.Tik("decrease mountpoint reference count")
+	da, t := u.LogBegin("decrease mountpoint reference count")
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	u.Duration("decrease mountpoint reference count", tik)
+	u.LogEnd(da, t)
 
-	tik = u.Tik("Unmount")
+	da, t = u.LogBegin("Unmount")
 	u.Infof("mountpoint is: %s", mountpoint)
 	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil {
 		logger.Debugf("Failed to unmount %s overlay: %s - %v", id, mountpoint, err)
 	}
-	u.Duration("Unmount", tik)
+	u.LogEnd(da, t)
 	// Remove the mountpoint here. Removing the mountpoint (in newer kernels)
 	// will cause all other instances of this mount in other mount namespaces
 	// to be unmounted. This is necessary to avoid cases where an overlay mount

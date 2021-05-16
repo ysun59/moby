@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/pkg/directory"
 	"github.com/docker/docker/volume"
 	"github.com/sirupsen/logrus"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // convertOpts are used to pass options to `volumeToAPI`
@@ -78,19 +79,31 @@ func (s *VolumesService) volumesToAPI(ctx context.Context, volumes []volume.Volu
 }
 
 func volumeToAPIType(v volume.Volume) types.Volume {
+	defer u.LogEnd(u.LogBegin("volumeToAPIType"))
 	createdAt, _ := v.CreatedAt()
 	tv := types.Volume{
 		Name:      v.Name(),
 		Driver:    v.DriverName(),
 		CreatedAt: createdAt.Format(time.RFC3339),
 	}
+	u.Infof("tv.Name is: %s", tv.Name)
+	u.Infof("tv.DriverName is: %s", tv.Driver)
+
 	if v, ok := v.(volume.DetailedVolume); ok {
+		u.Infof("AAA")
 		tv.Labels = v.Labels()
 		tv.Options = v.Options()
 		tv.Scope = v.Scope()
+
+		for labelkey := range tv.Labels {
+			u.Infof("labelKey is %s, labelValue is %s", labelkey, tv.Labels[labelkey])
+		}
+		u.Infof("tv.Scope is: %s", v.Scope)
 	}
+
 	if cp, ok := v.(pathCacher); ok {
 		tv.Mountpoint = cp.CachedPath()
+		u.Infof("Mountpoint is: %s", tv.Mountpoint)
 	}
 	return tv
 }

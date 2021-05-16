@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/volume/service/opts"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	u "github.com/YesZhen/superlog_go"
 )
 
 type ds interface {
@@ -63,10 +64,12 @@ func (s *VolumesService) GetDriverList() []string {
 // A good example for a reference ID is a container's ID.
 // When whatever is going to reference this volume is removed the caller should defeference the volume by calling `Release`.
 func (s *VolumesService) Create(ctx context.Context, name, driverName string, opts ...opts.CreateOption) (*types.Volume, error) {
+	defer u.LogEnd(u.LogBegin("volume Create1"))
 	if name == "" {
 		name = stringid.GenerateRandomID()
 	}
 	v, err := s.vs.Create(ctx, name, driverName, opts...)
+
 	if err != nil {
 		return nil, err
 	}

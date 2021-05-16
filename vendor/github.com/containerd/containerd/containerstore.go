@@ -27,7 +27,7 @@ import (
 	ptypes "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 type remoteContainers struct {
@@ -108,7 +108,7 @@ func (r *remoteContainers) stream(ctx context.Context, filters ...string) ([]con
 }
 
 func (r *remoteContainers) Create(ctx context.Context, container containers.Container) (containers.Container, error) {
-	defer u.Duration(u.Track("containerd/containerstore.go Create"))
+	defer u.LogEnd(u.LogBegin("cntrd/cntrstore.go Create"))
 	created, err := r.client.Create(ctx, &containersapi.CreateContainerRequest{
 		Container: containerToProto(&container),
 	})
@@ -141,7 +141,7 @@ func (r *remoteContainers) Update(ctx context.Context, container containers.Cont
 }
 
 func (r *remoteContainers) Delete(ctx context.Context, id string) error {
-	defer u.Duration(u.Track("containerd/containerstore.go Delete"))
+	defer u.LogEnd(u.LogBegin("containerd/containerstore.go Delete"))
 	_, err := r.client.Delete(ctx, &containersapi.DeleteContainerRequest{
 		ID: id,
 	})

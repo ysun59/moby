@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // The largest step that can be taken when remapping the mmap.
@@ -675,6 +676,7 @@ func (db *DB) removeTx(tx *Tx) {
 //
 // Attempting to manually commit or rollback within the function will cause a panic.
 func (db *DB) Update(fn func(*Tx) error) error {
+	defer u.LogEnd(u.LogBegin("volume Update"))
 	t, err := db.Begin(true)
 	if err != nil {
 		return err

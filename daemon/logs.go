@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // ContainerLogs copies the container's log channel to the channel provided in
@@ -176,7 +176,7 @@ func (daemon *Daemon) getLogger(container *container.Container) (l logger.Logger
 
 // mergeLogConfig merges the daemon log config to the container's log config if the container's log driver is not specified.
 func (daemon *Daemon) mergeAndVerifyLogConfig(cfg *containertypes.LogConfig) error {
-	defer u.Duration(u.Track("mergeAndVerifyLogConfig"))
+	defer u.LogEnd(u.LogBegin("mergeVeriLogConfig"))
 	if cfg.Type == "" {
 		cfg.Type = daemon.defaultLogConfig.Type
 	}

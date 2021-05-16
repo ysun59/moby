@@ -39,7 +39,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 const (
@@ -83,7 +83,7 @@ type Container interface {
 }
 
 func containerFromRecord(client *Client, c containers.Container) *container {
-	defer u.Duration(u.Track("containerd/container.go containerFromRecord"))
+	defer u.LogEnd(u.LogBegin("cntrd/cntr.go cntrFromRecord"))
 	return &container{
 		client:   client,
 		id:       c.ID,
@@ -174,7 +174,7 @@ func (c *container) Spec(ctx context.Context) (*oci.Spec, error) {
 // Delete deletes an existing container
 // an error is returned if the container has running tasks
 func (c *container) Delete(ctx context.Context, opts ...DeleteOpts) error {
-	defer u.Duration(u.Track("containerd/container.go Delete"))
+	defer u.LogEnd(u.LogBegin("containerd/container.go Delete"))
 	if _, err := c.loadTask(ctx, nil); err == nil {
 		return errors.Wrapf(errdefs.ErrFailedPrecondition, "cannot delete running task %v", c.id)
 	}
@@ -214,6 +214,7 @@ func (c *container) Image(ctx context.Context) (Image, error) {
 }
 
 func (c *container) NewTask(ctx context.Context, ioCreate cio.Creator, opts ...NewTaskOpts) (_ Task, err error) {
+	defer u.LogEnd(u.LogBegin("newTask1"))
 	i, err := ioCreate(c.id)
 	if err != nil {
 		return nil, err
@@ -301,7 +302,9 @@ func (c *container) NewTask(ctx context.Context, ioCreate cio.Creator, opts ...N
 	if info.Checkpoint != nil {
 		request.Checkpoint = info.Checkpoint
 	}
+	u.Info("time 12")
 	response, err := c.client.TaskService().Create(ctx, request)
+	u.Info("time 13")
 	if err != nil {
 		return nil, errdefs.FromGRPC(err)
 	}

@@ -41,7 +41,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
-	u "github.com/docker/docker/utils"
+//	u "github.com/YesZhen/superlog_go"
 )
 
 // StreamHandler defines the handler called by gRPC server to complete the
@@ -725,7 +725,7 @@ func (cs *clientStream) SendMsg(m interface{}) (err error) {
 }
 
 func (cs *clientStream) RecvMsg(m interface{}) error {
-	defer u.Duration(u.Track("stream.go RecvMsg"))
+//	defer u.LogEnd(u.LogBegin("stream.go RecvMsg"))
 	if cs.binlog != nil && !cs.serverHeaderBinlogged {
 		// Call Header() to binary log header if it's not already logged.
 		cs.Header()

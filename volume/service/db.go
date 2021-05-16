@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
+	u "github.com/YesZhen/superlog_go"
 )
 
 var volumeBucketName = []byte("volumes")
@@ -19,12 +20,14 @@ type volumeMetadata struct {
 }
 
 func (s *VolumeStore) setMeta(name string, meta volumeMetadata) error {
+	defer u.LogEnd(u.LogBegin("setMeta1"))
 	return s.db.Update(func(tx *bolt.Tx) error {
 		return setMeta(tx, name, meta)
 	})
 }
 
 func setMeta(tx *bolt.Tx, name string, meta volumeMetadata) error {
+	defer u.LogEnd(u.LogBegin("setMeta2"))
 	metaJSON, err := json.Marshal(meta)
 	if err != nil {
 		return err

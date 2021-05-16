@@ -22,7 +22,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	u "github.com/docker/docker/utils"
+	u "github.com/YesZhen/superlog_go"
 )
 
 type createOpts struct {
@@ -33,7 +33,7 @@ type createOpts struct {
 
 // CreateManagedContainer creates a container that is managed by a Service
 func (daemon *Daemon) CreateManagedContainer(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	defer u.Duration(u.Track("CreateManagedContainer"))
+	defer u.LogEnd(u.LogBegin("CreateManagedContainer"))
 	return daemon.containerCreate(createOpts{
 		params:                  params,
 		managed:                 true,
@@ -42,7 +42,7 @@ func (daemon *Daemon) CreateManagedContainer(params types.ContainerCreateConfig)
 
 // ContainerCreate creates a regular container
 func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	defer u.Duration(u.Track("ContainerCreate"))
+	defer u.LogEnd(u.LogBegin("ContainerCreate"))
 	return daemon.containerCreate(createOpts{
 		params:                  params,
 		managed:                 false,
@@ -52,7 +52,7 @@ func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (conta
 // ContainerCreateIgnoreImagesArgsEscaped creates a regular container. This is called from the builder RUN case
 // and ensures that we do not take the images ArgsEscaped
 func (daemon *Daemon) ContainerCreateIgnoreImagesArgsEscaped(params types.ContainerCreateConfig) (containertypes.ContainerCreateCreatedBody, error) {
-	defer u.Duration(u.Track("ContainerCreateIgnoreImagesArgsEscaped"))
+	defer u.LogEnd(u.LogBegin("ContainerCreateIgnoreImagesArgsEscaped"))
 	return daemon.containerCreate(createOpts{
 		params:                  params,
 		managed:                 false,
@@ -60,7 +60,7 @@ func (daemon *Daemon) ContainerCreateIgnoreImagesArgsEscaped(params types.Contai
 }
 
 func (daemon *Daemon) containerCreate(opts createOpts) (containertypes.ContainerCreateCreatedBody, error) {
-	defer u.Duration(u.Track("containerCreate"))
+	defer u.LogEnd(u.LogBegin("containerCreate"))
 	start := time.Now()
 	if opts.params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, errdefs.InvalidParameter(errors.New("Config cannot be empty in order to create a container"))
@@ -128,7 +128,7 @@ func (daemon *Daemon) containerCreate(opts createOpts) (containertypes.Container
 
 // Create creates a new container from the given configuration with a given name.
 func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr error) {
-	defer u.Duration(u.Track("create"))
+	defer u.LogEnd(u.LogBegin("create"))
 	var (
 		ctr   *container.Container
 		img   *image.Image
@@ -139,9 +139,9 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	os := runtime.GOOS
 	if opts.params.Config.Image != "" {
 		u.Info("enter if1 - Image != ")
-		tik := u.Tik("GetImage")
+		d, t := u.LogBegin("GetImage")
 		img, err = daemon.imageService.GetImage(opts.params.Config.Image, opts.params.Platform)
-		u.Duration("GetImage", tik)
+		u.LogEnd(d, t)
 		if err != nil {
 			u.Info("enter if1 - 1")
 			return nil, err
@@ -218,7 +218,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	}
 	ctr.RWLayer = rwLayer
 
-	tik := u.Tik("MkdirAndChown")
+//	d, t := u.LogBegin("MkdirAndChown")
 	if err := idtools.MkdirAndChown(ctr.Root, 0701, idtools.CurrentIdentity()); err != nil {
 		u.Info("enter if10")
 		return nil, err
@@ -227,7 +227,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 		u.Info("enter if11")
 		return nil, err
 	}
-	u.Duration("MkdirAndChown", tik)
+//	u.LogEnd(d, t)
 
 	if err := daemon.setHostConfig(ctr, opts.params.HostConfig); err != nil {
 		u.Info("enter if12")
@@ -249,12 +249,12 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 	runconfig.SetDefaultNetModeIfBlank(ctr.HostConfig)
 
 	daemon.updateContainerNetworkSettings(ctr, endpointsConfigs)
-	tik = u.Tik("Register")
+	d, t := u.LogBegin("Register")
 	if err := daemon.Register(ctr); err != nil {
 		u.Info("enter if15")
 		return nil, err
 	}
-	u.Duration("Register", tik)
+	u.LogEnd(d, t)
 
 	stateCtr.set(ctr.ID, "stopped")
 	daemon.LogContainerEvent(ctr, "create")
@@ -262,7 +262,7 @@ func (daemon *Daemon) create(opts createOpts) (retC *container.Container, retErr
 }
 
 func toHostConfigSelinuxLabels(labels []string) []string {
-	defer u.Duration(u.Track("toHostConfigSelinuxLabels"))
+	defer u.LogEnd(u.LogBegin("toHostConfigSelinuxLabels"))
 	for i, l := range labels {
 		labels[i] = "label=" + l
 	}
@@ -270,7 +270,7 @@ func toHostConfigSelinuxLabels(labels []string) []string {
 }
 
 func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig) ([]string, error) {
-	defer u.Duration(u.Track("generateSecurityOpt"))
+	defer u.LogEnd(u.LogBegin("generateSecurityOpt"))
 	for _, opt := range hostConfig.SecurityOpt {
 		con := strings.Split(opt, "=")
 		if con[0] == "label" {
@@ -329,7 +329,7 @@ func (daemon *Daemon) generateSecurityOpt(hostConfig *containertypes.HostConfig)
 }
 
 func (daemon *Daemon) mergeAndVerifyConfig(config *containertypes.Config, img *image.Image) error {
-	defer u.Duration(u.Track("mergeAndVerifyConfig"))
+	defer u.LogEnd(u.LogBegin("mergeAndVerifyConfig"))
 	if img != nil && img.Config != nil {
 		if err := merge(config, img.Config); err != nil {
 			return err
@@ -348,7 +348,7 @@ func (daemon *Daemon) mergeAndVerifyConfig(config *containertypes.Config, img *i
 // Checks if the client set configurations for more than one network while creating a container
 // Also checks if the IPAMConfig is valid
 func verifyNetworkingConfig(nwConfig *networktypes.NetworkingConfig) error {
-	defer u.Duration(u.Track("verifyNetworkingConfig"))
+	defer u.LogEnd(u.LogBegin("verifyNetCfig"))
 	if nwConfig == nil || len(nwConfig.EndpointsConfig) == 0 {
 		return nil
 	}

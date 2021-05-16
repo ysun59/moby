@@ -19,11 +19,13 @@ import (
 	digest "github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	u "github.com/YesZhen/superlog_go"
 )
 
 // PullImage initiates a pull operation. image is the repository name to pull, and
 // tag may be either empty, or indicate a specific tag to pull.
 func (i *ImageService) PullImage(ctx context.Context, image, tag string, platform *specs.Platform, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
+	defer u.LogEnd(u.LogBegin("PullImage"))
 	start := time.Now()
 	// Special case: "pull -a" may send an image name with a
 	// trailing :. This is ugly, but let's not break API
